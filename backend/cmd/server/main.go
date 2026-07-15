@@ -105,19 +105,18 @@ func main() {
 	ctx := context.Background()
 	cfg := config.Load()
 
-	// Find static directory relative to working directory
-	// render-build.sh copies frontend build to backend/cmd/server/static/
-	wd, _ := os.Getwd()
-	staticDir = filepath.Join(wd, "backend", "cmd", "server", "static")
+	// Static directory: env var STATIC_DIR or default to ./static relative to CWD
+	staticDir = os.Getenv("STATIC_DIR")
+	if staticDir == "" {
+		staticDir = "static"
+	}
+	staticDir, _ = filepath.Abs(staticDir)
 
 	// Log what we found for debugging
 	if entries, err := os.ReadDir(staticDir); err != nil {
 		log.Printf("WARNING: static dir %s not found: %v", staticDir, err)
 	} else {
 		log.Printf("static dir %s: %d entries", staticDir, len(entries))
-		for _, e := range entries {
-			log.Printf("  - %s (dir=%v)", e.Name(), e.IsDir())
-		}
 	}
 
 	db, err := database.NewPool(ctx, cfg.DatabaseURL)

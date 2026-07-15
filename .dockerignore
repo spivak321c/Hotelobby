@@ -1,0 +1,14 @@
+.git
+.gitignore
+AGENTS.md
+PRD.md
+README.md
+docs/
+media/
+node_modules/
+.svelte-kit/
+frontend/build/
+backend/cmd/server/static/
+build/
+*.exe
+*.test
