@@ -1,0 +1,53 @@
+# Dependencies
+node_modules
+
+# Build output
+.output
+.vercel
+.netlify
+.wrangler
+/.svelte-kit
+/build
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env (keep .env.example)
+.env
+.env.*
+!.env.example
+
+# Vite
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# Agent / IDE config
+.opencode/
+
+# Temp & backup
+tmp/
+backup/
+
+# Documentation, design, media, notes (not needed for build)
+*.md
+*.txt
+*.svg
+*.png
+*.webm
+*.mhtml
+designs/
+docs/
+
+# Init scripts
+init-project.ps1
+init-project.sh
+
+# Backend binaries
+backend/server.exe
+backend/seed.exe
+backend/tmp/
+
+# Root-level test/planning files
+/test_flow.ts
+/test_suite.ts

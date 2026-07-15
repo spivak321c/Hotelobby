@@ -1,0 +1,22 @@
+{
+	"config": {
+		"preset": "compressed"
+	},
+	"files": [
+		{
+			"path": "build/_app/immutable/**/*.js",
+			"maxSize": "50 kB",
+			"compression": "gzip"
+		},
+		{
+			"path": "build/_app/immutable/**/*.css",
+			"maxSize": "15 kB",
+			"compression": "gzip"
+		},
+		{
+			"path": "build/index.html",
+			"maxSize": "5 kB",
+			"compression": "gzip"
+		}
+	]
+}

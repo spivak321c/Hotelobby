@@ -1,0 +1,138 @@
+@import "tailwindcss";
+
+@theme {
+  /* Stone palette — warm neutrals */
+  --color-stone-50: oklch(0.98 0.003 80);
+  --color-stone-100: oklch(0.95 0.005 80);
+  --color-stone-200: oklch(0.90 0.008 80);
+  --color-stone-300: oklch(0.83 0.010 80);
+  --color-stone-400: oklch(0.68 0.012 80);
+  --color-stone-500: oklch(0.55 0.012 80);
+  --color-stone-600: oklch(0.45 0.010 80);
+  --color-stone-700: oklch(0.35 0.008 80);
+  --color-stone-800: oklch(0.25 0.006 80);
+  --color-stone-900: oklch(0.16 0.004 80);
+  --color-stone-950: oklch(0.10 0.003 80);
+
+  /* Sage accent — muted green */
+  --color-sage-50: oklch(0.97 0.02 145);
+  --color-sage-100: oklch(0.93 0.04 145);
+  --color-sage-200: oklch(0.87 0.06 145);
+  --color-sage-300: oklch(0.78 0.08 145);
+  --color-sage-400: oklch(0.68 0.09 145);
+  --color-sage-500: oklch(0.58 0.08 145);
+  --color-sage-600: oklch(0.48 0.07 145);
+  --color-sage-700: oklch(0.40 0.06 145);
+  --color-sage-800: oklch(0.33 0.04 145);
+  --color-sage-900: oklch(0.26 0.03 145);
+
+  /* Brass — muted warm gold accent (used VERY sparingly) */
+  --color-brass-300: oklch(0.75 0.05 75);
+  --color-brass-400: oklch(0.68 0.06 75);
+  --color-brass-500: oklch(0.62 0.07 75);
+  --color-brass-600: oklch(0.52 0.06 75);
+
+  /* Ink — near-black text */
+  --color-ink: oklch(0.15 0.01 80);
+
+  /* Cream — warm white background */
+  --color-cream: oklch(0.985 0.002 80);
+
+  --font-display: "Cormorant Garamond", Georgia, serif;
+  --font-body: "Inter", system-ui, sans-serif;
+
+  /* Easing for premium motion */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+@layer base {
+  :root {
+    --surface: var(--color-cream);
+    --surface-alt: var(--color-stone-100);
+    --border: var(--color-stone-200);
+    --text: var(--color-ink);
+    --text-muted: var(--color-stone-500);
+    --radius: 2px;
+  }
+
+  html {
+    font-family: var(--font-body);
+    color: var(--text);
+    background: var(--surface);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "ss01", "cv01";
+  }
+
+  body {
+    min-height: 100dvh;
+  }
+
+  /* Selection color */
+  ::selection {
+    background: oklch(0.68 0.06 75 / 0.2);
+    color: var(--color-ink);
+  }
+
+  /* Custom scrollbar — thin, warm, subtle */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-stone-200);
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-stone-300);
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display);
+  }
+
+  /* Glassmorphism nav */
+  .glass {
+    background: oklch(0.985 0.002 80 / 0.82);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+
+  /* Subtle text shadow for overlay text */
+  .text-shadow {
+    text-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  }
+
+  /* Smooth scroll */
+  .smooth-scroll {
+    scroll-behavior: smooth;
+  }
+
+  /* Editorial number — tabular figures for prices/dates */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  /* Hairline divider */
+  .hairline {
+    height: 1px;
+    background: var(--color-stone-200);
+  }
+
+  /* Subtle paper-grain texture overlay (barely visible) */
+  .grain::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.035;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' /%3E%3C/svg%3E");
+    mix-blend-mode: multiply;
+  }
+}
