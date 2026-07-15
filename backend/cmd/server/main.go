@@ -4,8 +4,6 @@ import (
 	"context"
 	"embed"
 	"fmt"
-	"io"
-	"io/fs"
 	"log"
 	"mime"
 	"path/filepath"
@@ -25,26 +23,29 @@ import (
 	"github.com/joho/godotenv"
 )
 
-//go:embed static
+//go:embed all:static
 var staticFS embed.FS
 
-var staticMIME = map[string]string{
-	".html": "text/html; charset=utf-8",
-	".css":  "text/css; charset=utf-8",
-	".js":   "application/javascript; charset=utf-8",
-	".json": "application/json",
-	".svg":  "image/svg+xml",
-	".png":  "image/png",
-	".jpg":  "image/jpeg",
-	".jpeg": "image/jpeg",
-	".ico":  "image/x-icon",
-	".webp": "image/webp",
-	".woff": "font/woff",
+var mimeTypes = map[string]string{
+	".html":  "text/html; charset=utf-8",
+	".css":   "text/css; charset=utf-8",
+	".js":    "application/javascript; charset=utf-8",
+	".json":  "application/json",
+	".svg":   "image/svg+xml",
+	".png":   "image/png",
+	".jpg":   "image/jpeg",
+	".jpeg":  "image/jpeg",
+	".gif":   "image/gif",
+	".ico":   "image/x-icon",
+	".webp":  "image/webp",
+	".woff":  "font/woff",
 	".woff2": "font/woff2",
+	".ttf":   "font/ttf",
+	".txt":   "text/plain; charset=utf-8",
 }
 
-func contentType(path string) string {
-	if ct, ok := staticMIME[filepath.Ext(path)]; ok {
+func getContentType(path string) string {
+	if ct, ok := mimeTypes[filepath.Ext(path)]; ok {
 		return ct
 	}
 	if ct := mime.TypeByExtension(filepath.Ext(path)); ct != "" {
@@ -53,33 +54,48 @@ func contentType(path string) string {
 	return "application/octet-stream"
 }
 
-func serveFile(c *fiber.Ctx, subFS fs.FS, path string) error {
-	f, err := subFS.Open(path)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	stat, err := f.Stat()
-	if err != nil {
-		return err
+func staticHandler(c *fiber.Ctx) error {
+	path := c.Path()[1:]
+	if path == "" {
+		path = "200.html"
 	}
 
-	if stat.IsDir() {
-		return serveFile(c, subFS, path+"/index.html")
+	data, err := staticFS.ReadFile("static/" + path)
+	if err == nil {
+		c.Set("Content-Type", getContentType(path))
+		return c.Send(data)
 	}
 
-	data, err := io.ReadAll(f)
-	if err != nil {
-		return err
+	data, err = staticFS.ReadFile("static/" + path + ".html")
+	if err == nil {
+		c.Set("Content-Type", "text/html; charset=utf-8")
+		return c.Send(data)
 	}
 
-	c.Set("Content-Type", contentType(path))
-	c.Set("Cache-Control", "public, max-age=3600")
-	return c.Send(data)
+	data, err = staticFS.ReadFile("static/" + path + "/index.html")
+	if err == nil {
+		c.Set("Content-Type", "text/html; charset=utf-8")
+		return c.Send(data)
+	}
+
+	data, err = staticFS.ReadFile("static/200.html")
+	if err == nil {
+		c.Set("Content-Type", "text/html; charset=utf-8")
+		return c.Send(data)
+	}
+
+	return c.Status(404).SendString("Not found")
 }
 
 func main() {
+	mime.AddExtensionType(".js", "application/javascript; charset=utf-8")
+	mime.AddExtensionType(".css", "text/css; charset=utf-8")
+	mime.AddExtensionType(".html", "text/html; charset=utf-8")
+	mime.AddExtensionType(".svg", "image/svg+xml")
+	mime.AddExtensionType(".json", "application/json")
+	mime.AddExtensionType(".woff", "font/woff")
+	mime.AddExtensionType(".woff2", "font/woff2")
+
 	godotenv.Load()
 	ctx := context.Background()
 	cfg := config.Load()
@@ -149,23 +165,8 @@ func main() {
 	appRouter := router.New(app, authService, roomService, reservationService, customerService, paymentService, bookingService, inventoryService, imageService, sseHub, customerRepo, adminRepo)
 	appRouter.RegisterAll()
 
-	subFS, _ := fs.Sub(staticFS, "static")
-
-	app.Use("/*", func(c *fiber.Ctx) error {
-		path := c.Path()[1:]
-		if path == "" {
-			path = "index.html"
-		}
-
-		err := serveFile(c, subFS, path)
-		if err != nil {
-			err = serveFile(c, subFS, "200.html")
-			if err != nil {
-				return c.Status(404).SendString("Not found")
-			}
-		}
-		return nil
-	})
+	app.Get("/", staticHandler)
+	app.Use("/*", staticHandler)
 
 	log.Printf("starting server on :%s", cfg.Port)
 	log.Fatal(app.Listen(":" + cfg.Port))
