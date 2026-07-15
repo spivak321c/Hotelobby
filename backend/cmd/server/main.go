@@ -4,10 +4,11 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"io"
 	"io/fs"
 	"log"
+	"mime"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"hotel_lobby/internal/config"
@@ -24,45 +25,58 @@ import (
 	"github.com/joho/godotenv"
 )
 
-//go:embed static/*
+//go:embed static
 var staticFS embed.FS
 
-func newStaticHandler() fiber.Handler {
-	subFS, err := fs.Sub(staticFS, "static")
+var staticMIME = map[string]string{
+	".html": "text/html; charset=utf-8",
+	".css":  "text/css; charset=utf-8",
+	".js":   "application/javascript; charset=utf-8",
+	".json": "application/json",
+	".svg":  "image/svg+xml",
+	".png":  "image/png",
+	".jpg":  "image/jpeg",
+	".jpeg": "image/jpeg",
+	".ico":  "image/x-icon",
+	".webp": "image/webp",
+	".woff": "font/woff",
+	".woff2": "font/woff2",
+}
+
+func contentType(path string) string {
+	if ct, ok := staticMIME[filepath.Ext(path)]; ok {
+		return ct
+	}
+	if ct := mime.TypeByExtension(filepath.Ext(path)); ct != "" {
+		return ct
+	}
+	return "application/octet-stream"
+}
+
+func serveFile(c *fiber.Ctx, subFS fs.FS, path string) error {
+	f, err := subFS.Open(path)
 	if err != nil {
-		log.Fatalf("static embed sub: %v", err)
+		return err
+	}
+	defer f.Close()
+
+	stat, err := f.Stat()
+	if err != nil {
+		return err
 	}
 
-	return func(c *fiber.Ctx) error {
-		path := strings.TrimPrefix(c.Path(), "/")
-		if path == "" {
-			path = "index.html"
-		}
-
-		// Try exact path, path.html, path/index.html, then SPA fallback
-		if data, err := fs.ReadFile(subFS, path); err == nil {
-			c.Type(filepath.Ext(path))
-			return c.Send(data)
-		}
-
-		if data, err := fs.ReadFile(subFS, path+".html"); err == nil {
-			c.Type(".html")
-			return c.Send(data)
-		}
-
-		if data, err := fs.ReadFile(subFS, path+"/index.html"); err == nil {
-			c.Type(".html")
-			return c.Send(data)
-		}
-
-		// SPA fallback
-		data, err := fs.ReadFile(subFS, "200.html")
-		if err != nil {
-			return c.Status(fiber.StatusNotFound).SendString("Not found")
-		}
-		c.Type(".html")
-		return c.Send(data)
+	if stat.IsDir() {
+		return serveFile(c, subFS, path+"/index.html")
 	}
+
+	data, err := io.ReadAll(f)
+	if err != nil {
+		return err
+	}
+
+	c.Set("Content-Type", contentType(path))
+	c.Set("Cache-Control", "public, max-age=3600")
+	return c.Send(data)
 }
 
 func main() {
@@ -82,7 +96,6 @@ func main() {
 	}
 	defer rdb.Close()
 
-	// Repos
 	roomTypeRepo := repositories.NewRoomTypeRepo(db)
 	roomRepo := repositories.NewRoomRepo(db)
 	imageRepo := repositories.NewRoomImageRepo(db)
@@ -94,7 +107,6 @@ func main() {
 	bookingRepo := repositories.NewBookingRepo(db)
 	paymentRepo := repositories.NewPaymentRepo(db)
 
-	// Services
 	authService := services.NewAuthService(customerRepo, adminRepo, cfg.JWTSecret)
 	roomService := services.NewRoomService(roomTypeRepo, roomRepo, pricingRepo, inventoryRepo, imageRepo)
 	emailService := services.NewEmailService(services.EmailConfig{
@@ -113,7 +125,6 @@ func main() {
 	bookingService := services.NewBookingService(bookingRepo, roomRepo, reservationRepo)
 	paymentService := services.NewPaymentService(cfg.PaystackSecretKey, cfg.PaystackPublicKey, cfg.PaystackWebhookSec, cfg.CrossmintAPIKey, cfg.CrossmintProjectID, cfg.CrossmintWebhook, paymentRepo, reservationRepo, bookingRepo, emailService)
 
-	// Image/Cloudinary
 	cloudinaryURL := fmt.Sprintf("cloudinary://%s:%s@%s", cfg.CloudAPIKey, cfg.CloudSecret, cfg.CloudName)
 	cldClient, err := cloudinary.NewClient(cloudinaryURL)
 	if err != nil {
@@ -135,27 +146,27 @@ func main() {
 		AllowHeaders:     "Origin, Content-Type, Accept, Authorization, Idempotency-Key",
 	}))
 
-	// Router Setup
 	appRouter := router.New(app, authService, roomService, reservationService, customerService, paymentService, bookingService, inventoryService, imageService, sseHub, customerRepo, adminRepo)
 	appRouter.RegisterAll()
 
-	// Static file serving with SPA fallback
-	staticHandler := newStaticHandler()
-	app.Get("/", staticHandler)
-	app.All("/*", staticHandler)
+	subFS, _ := fs.Sub(staticFS, "static")
 
-	// Log embedded file count for debugging
-	if entries, err := fs.ReadDir(staticFS, "static"); err == nil {
-		log.Printf("embedded static files: %d entries", len(entries))
-	} else {
-		log.Printf("warning: no embedded static files: %v", err)
-	}
+	app.Use("/*", func(c *fiber.Ctx) error {
+		path := c.Path()[1:]
+		if path == "" {
+			path = "index.html"
+		}
 
-	port := cfg.Port
-	if port == "" {
-		port = "8000"
-	}
+		err := serveFile(c, subFS, path)
+		if err != nil {
+			err = serveFile(c, subFS, "200.html")
+			if err != nil {
+				return c.Status(404).SendString("Not found")
+			}
+		}
+		return nil
+	})
 
-	log.Printf("starting server on :%s", port)
-	log.Fatal(app.Listen(":" + port))
+	log.Printf("starting server on :%s", cfg.Port)
+	log.Fatal(app.Listen(":" + cfg.Port))
 }
