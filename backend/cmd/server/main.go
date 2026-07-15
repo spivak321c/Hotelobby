@@ -141,7 +141,15 @@ func main() {
 
 	// Static file serving with SPA fallback
 	staticHandler := newStaticHandler()
-	app.Use("/*", staticHandler)
+	app.Get("/", staticHandler)
+	app.All("/*", staticHandler)
+
+	// Log embedded file count for debugging
+	if entries, err := fs.ReadDir(staticFS, "static"); err == nil {
+		log.Printf("embedded static files: %d entries", len(entries))
+	} else {
+		log.Printf("warning: no embedded static files: %v", err)
+	}
 
 	port := cfg.Port
 	if port == "" {
