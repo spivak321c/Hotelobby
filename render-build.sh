@@ -15,12 +15,9 @@ bun run build
 mkdir -p ../backend/cmd/server/static
 cp -r build/* ../backend/cmd/server/static/
 
-# Debug: show what was copied
-echo "=== Static files after copy ==="
-find ../backend/cmd/server/static -type f | head -20
-echo "=== JS files ==="
-find ../backend/cmd/server/static -name "*.js" | head -10
-echo "=== End debug ==="
+# Debug: verify files exist (avoid | head which causes SIGPIPE)
+echo "=== Static files copied successfully ==="
+ls ../backend/cmd/server/static/_app/immutable/ 2>/dev/null && echo "_app directory OK" || echo "WARNING: _app directory missing!"
 
 # Build Go binary (output to repo root as "app")
 cd ../backend
