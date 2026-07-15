@@ -15,6 +15,13 @@ bun run build
 mkdir -p ../backend/cmd/server/static
 cp -r build/* ../backend/cmd/server/static/
 
+# Debug: show what was copied
+echo "=== Static files after copy ==="
+find ../backend/cmd/server/static -type f | head -20
+echo "=== JS files ==="
+find ../backend/cmd/server/static -name "*.js" | head -10
+echo "=== End debug ==="
+
 # Build Go binary (output to repo root as "app")
 cd ../backend
 go build -tags netgo -ldflags '-s -w' -o ../app ./cmd/server

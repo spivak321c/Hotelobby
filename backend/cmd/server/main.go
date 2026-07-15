@@ -2,11 +2,12 @@ package main
 
 import (
 	"context"
-	"embed"
 	"fmt"
 	"log"
 	"mime"
+	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"hotel_lobby/internal/config"
@@ -23,8 +24,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
-//go:embed all:static
-var staticFS embed.FS
+var staticDir string
 
 var mimeTypes = map[string]string{
 	".html":  "text/html; charset=utf-8",
@@ -60,25 +60,38 @@ func staticHandler(c *fiber.Ctx) error {
 		path = "200.html"
 	}
 
-	data, err := staticFS.ReadFile("static/" + path)
+	// Resolve and sanitize: prevent directory traversal
+	clean := filepath.Clean("/" + path)
+	clean = strings.TrimPrefix(clean, "/")
+
+	fullPath := filepath.Join(staticDir, clean)
+	if !strings.HasPrefix(fullPath, staticDir) {
+		return c.Status(403).SendString("Forbidden")
+	}
+
+	// Try exact file
+	data, err := os.ReadFile(fullPath)
 	if err == nil {
-		c.Set("Content-Type", getContentType(path))
+		c.Set("Content-Type", getContentType(clean))
 		return c.Send(data)
 	}
 
-	data, err = staticFS.ReadFile("static/" + path + ".html")
+	// Try path.html (pre-rendered routes: /rooms -> rooms.html)
+	data, err = os.ReadFile(fullPath + ".html")
 	if err == nil {
 		c.Set("Content-Type", "text/html; charset=utf-8")
 		return c.Send(data)
 	}
 
-	data, err = staticFS.ReadFile("static/" + path + "/index.html")
+	// Try path/index.html
+	data, err = os.ReadFile(filepath.Join(fullPath, "index.html"))
 	if err == nil {
 		c.Set("Content-Type", "text/html; charset=utf-8")
 		return c.Send(data)
 	}
 
-	data, err = staticFS.ReadFile("static/200.html")
+	// SPA fallback
+	data, err = os.ReadFile(filepath.Join(staticDir, "200.html"))
 	if err == nil {
 		c.Set("Content-Type", "text/html; charset=utf-8")
 		return c.Send(data)
@@ -88,17 +101,24 @@ func staticHandler(c *fiber.Ctx) error {
 }
 
 func main() {
-	mime.AddExtensionType(".js", "application/javascript; charset=utf-8")
-	mime.AddExtensionType(".css", "text/css; charset=utf-8")
-	mime.AddExtensionType(".html", "text/html; charset=utf-8")
-	mime.AddExtensionType(".svg", "image/svg+xml")
-	mime.AddExtensionType(".json", "application/json")
-	mime.AddExtensionType(".woff", "font/woff")
-	mime.AddExtensionType(".woff2", "font/woff2")
-
 	godotenv.Load()
 	ctx := context.Background()
 	cfg := config.Load()
+
+	// Find static directory relative to working directory
+	// render-build.sh copies frontend build to backend/cmd/server/static/
+	wd, _ := os.Getwd()
+	staticDir = filepath.Join(wd, "backend", "cmd", "server", "static")
+
+	// Log what we found for debugging
+	if entries, err := os.ReadDir(staticDir); err != nil {
+		log.Printf("WARNING: static dir %s not found: %v", staticDir, err)
+	} else {
+		log.Printf("static dir %s: %d entries", staticDir, len(entries))
+		for _, e := range entries {
+			log.Printf("  - %s (dir=%v)", e.Name(), e.IsDir())
+		}
+	}
 
 	db, err := database.NewPool(ctx, cfg.DatabaseURL)
 	if err != nil {
