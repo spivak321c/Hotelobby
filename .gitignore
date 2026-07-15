@@ -32,12 +32,14 @@ backup/
 # Documentation, design, media, notes (not needed for build)
 *.md
 *.txt
-*.svg
 *.png
 *.webm
 *.mhtml
 designs/
 docs/
+
+# Root-level svg only (keep lib assets)
+/download.svg
 
 # Init scripts
 init-project.ps1
